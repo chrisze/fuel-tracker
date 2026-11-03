@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e5f6b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="SR22T Fuel">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<title>SR22T Tank Tracker</title>
+<style>
+  :root{
+    --teal:#0e5f6b; --teal-dark:#0a4750; --teal-soft:#e6f2f4;
+    --ink:#18262b; --muted:#61737b; --faint:#8fa1a8;
+    --line:#d9e2e6; --bg:#dfe7ec; --card:#ffffff;
+    --red:#b3261e; --red-bg:#fdecea; --amber:#9a6a00; --amber-bg:#fff3d1; --amber-bar:#e8a33d;
+    --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:calc(14px + env(safe-area-inset-top)) 12px calc(28px + env(safe-area-inset-bottom));
+  }
+  .storage-warn{display:none;max-width:480px;margin:0 auto 10px;background:#fdecea;border:1.5px solid #b3261e;color:#7a1710;border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.45;font-weight:600}
+  .storage-warn.show{display:block}
+  .card{
+    max-width:480px; margin:0 auto; background:var(--card);
+    border:1px solid var(--line); border-radius:22px;
+    padding:22px 18px 18px; box-shadow:0 4px 18px rgba(18,45,55,.10);
+  }
+  header{text-align:center; margin-bottom:18px}
+  h1{margin:0; font-size:25px; font-weight:800; letter-spacing:3.5px}
+  .subtitle{color:var(--muted); margin-top:4px; font-size:13px; letter-spacing:1.6px; font-weight:600}
+  .subtitle b{color:var(--teal)}
+  .offline-line{margin-top:5px;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--amber);text-align:center}
+  .offline-line.ready{color:var(--teal)}
+
+  label{display:block; font-size:11px; font-weight:700; letter-spacing:1.2px; color:var(--muted); margin:0 0 6px}
+  input[type=text]{
+    width:100%; padding:12px; font-size:17px; border:1.5px solid var(--line); border-radius:12px;
+    background:#fbfcfd; color:var(--ink); font-variant-numeric:tabular-nums; appearance:none;
+  }
+  input[type=text]:focus{outline:none; border-color:var(--teal); box-shadow:0 0 0 3px var(--teal-soft)}
+  input.invalid{border-color:var(--red)!important; box-shadow:0 0 0 3px var(--red-bg)!important}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .field{margin-bottom:14px}
+
+  button{font-family:inherit; touch-action:manipulation; cursor:pointer}
+  .btn{
+    display:block; width:100%; min-height:54px; padding:14px 12px;
+    font-size:17px; font-weight:700; border-radius:14px;
+    border:1.5px solid var(--teal); background:var(--teal); color:#fff; text-align:center;
+  }
+  .btn:active{background:var(--teal-dark)}
+  .btn.ghost{border-color:var(--line); background:#fff; color:var(--ink); font-size:15px; min-height:48px}
+  .btn.ghost:active{background:#f0f4f5}
+  .btn.danger{border-color:var(--red); background:#fff; color:var(--red)}
+  .btn[disabled]{opacity:.38; pointer-events:none}
+  .btnrow{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .stack>*{margin-bottom:12px}
+  .stack>*:last-child{margin-bottom:0}
+
+  .toggle{display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#eef3f5; padding:5px; border-radius:14px}
+  .toggle button{min-height:48px; font-size:16px; font-weight:700; border:none; border-radius:10px; background:transparent; color:var(--muted)}
+  .toggle button.active{background:var(--teal); color:#fff; box-shadow:0 2px 6px rgba(14,95,107,.35)}
+
+  .help{color:var(--muted); font-size:13.5px; line-height:1.55; margin:10px 0 16px}
+  .warn{display:none; border-radius:12px; padding:11px 13px; font-size:13.5px; line-height:1.5; margin-bottom:14px}
+  .warn.show{display:block}
+  .warn.amber{background:var(--amber-bg); border:1px solid #ecc964; color:#6d4c00}
+  .warn.red{background:var(--red-bg); border:1px solid #f0b7b2; color:var(--red); font-weight:600}
+
+  /* hero totals */
+  .hero{display:flex; align-items:flex-end; justify-content:space-between; gap:10px;
+    border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:14px}
+  .hero .num{font-size:42px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums}
+  .hero .num small{font-size:17px; font-weight:600; color:var(--muted)}
+  .hero .side{text-align:right; color:var(--muted); font-size:13px; line-height:1.6; font-variant-numeric:tabular-nums}
+  .hero .side b{color:var(--ink); font-size:15px}
+  .onchip{display:inline-block; background:var(--teal); color:#fff; font-weight:800; font-size:13px;
+    letter-spacing:.6px; border-radius:20px; padding:4px 12px}
+
+  /* tank cards */
+  .tanks{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:6px}
+  .tank{border:2px solid var(--line); border-radius:16px; padding:13px 13px 12px; min-width:0}
+  .tank.active{border-color:var(--teal); background:#fbfefe}
+  .tank .thead{display:flex; justify-content:space-between; align-items:center; margin-bottom:2px}
+  .tank .tname{font-size:13px; font-weight:800; letter-spacing:1.4px}
+  .onpill{display:none; font-size:10px; font-weight:800; letter-spacing:1px; background:var(--teal);
+    color:#fff; border-radius:20px; padding:3px 9px}
+  .tank.active .onpill{display:inline-block}
+  .lowpill{display:none; font-size:10px; font-weight:800; letter-spacing:1px; background:var(--red);
+    color:#fff; border-radius:20px; padding:3px 9px}
+  .tank.low .lowpill{display:inline-block}
+  .tank.low .onpill{display:none}
+  .tank.active.low .onpill{display:inline-block; margin-right:5px}
+  .tank.active.low .lowpill{display:inline-block}
+  .tank .rem{font-size:31px; font-weight:800; line-height:1.15; font-variant-numeric:tabular-nums}
+  .tank .rem small{font-size:14px; font-weight:600; color:var(--muted)}
+  .bar{height:11px; border-radius:6px; background:#e8eef1; overflow:hidden; margin:7px 0 8px}
+  .bar>i{display:block; height:100%; background:var(--teal); width:100%; border-radius:6px;
+    transition:width .35s ease}
+  .tank.right .bar>i{background:#40606d}
+  .tank .bar.warnbar>i{background:var(--amber-bar)}
+  .tank .bar.lowbar>i{background:var(--red)}
+  .tank .meta{color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums}
+  .tank .startrow{margin-top:10px}
+  .tank .startrow input{padding:8px 10px; font-size:15px; border-radius:9px}
+
+  /* action dock */
+  .dock{
+    position:sticky; bottom:0; z-index:5; background:var(--card);
+    padding:12px 0 calc(6px + env(safe-area-inset-bottom)); margin-top:8px;
+    border-top:1px solid var(--line);
+  }
+  .dock input{
+    font-size:24px; font-weight:700; text-align:center; padding:13px; border-radius:14px;
+  }
+  .preview{font-size:13.5px; color:var(--muted); text-align:center; min-height:20px; margin:8px 2px 10px; line-height:1.45}
+  .preview.bad{color:var(--red); font-weight:600}
+  .switchbtn{min-height:64px; font-size:19px; letter-spacing:.3px; border-radius:16px;
+    box-shadow:0 4px 12px rgba(14,95,107,.30)}
+  .status{font-size:13px; color:var(--teal-dark); text-align:center; min-height:18px; margin-top:9px; font-weight:600}
+
+  /* log */
+  .logtitle{font-size:11px; font-weight:700; letter-spacing:1.2px; color:var(--muted); margin:18px 0 4px}
+  .logrow{display:flex; justify-content:space-between; align-items:baseline; gap:8px;
+    padding:9px 2px; border-bottom:1px solid #edf1f3; font-variant-numeric:tabular-nums}
+  .logrow .l1{font-size:15px; font-weight:700; white-space:nowrap}
+  .logrow .l1 span{color:var(--faint); font-weight:600; font-size:12.5px; margin-right:7px}
+  .logrow .l2{text-align:right; color:var(--muted); font-size:12.5px; line-height:1.5; white-space:nowrap}
+  .logrow .l2 b{color:var(--ink); font-size:13.5px}
+  .emptylog{color:var(--faint); font-size:13.5px; text-align:center; padding:14px 0 4px}
+
+  .offline{text-align:center; color:var(--faint); font-size:11.5px; margin-top:16px; line-height:1.6}
+
+  .modalwrap{display:none; position:fixed; inset:0; background:rgba(13,32,39,.48); z-index:20;
+    align-items:center; justify-content:center; padding:20px}
+  .modalwrap.show{display:flex}
+  .modal{background:#fff; border-radius:18px; max-width:380px; width:100%; padding:22px}
+  .modal h2{margin:0 0 8px; font-size:20px}
+  .modal p{margin:0 0 18px; color:var(--muted); font-size:15px; line-height:1.5}
+  .hidden{display:none!important}
+
+  @media (max-width:430px){
+    body{padding-left:0; padding-right:0; padding-top:0}
+    .card{border:none; border-radius:0; max-width:none; min-height:100dvh;
+      padding-top:calc(18px + env(safe-area-inset-top))}
+    .hero .num{font-size:38px}
+    .tank .rem{font-size:28px}
+  }
+</style>
+</head>
+<body>
+<div class="storage-warn" id="storageWarn">⚠ This copy cannot save your flight. Pages run from a data: link (or a local file) have no persistent storage in Safari — a reload will lose everything. Open the hosted https version and Add to Home Screen before flying.</div>
+<div class="card">
+  <header>
+    <h1>TANK TRACKER</h1>
+    <div class="subtitle"><b>SR22T</b> &middot; 46 GAL / SIDE</div>
+    <div class="offline-line" id="offlineLine">Offline: checking…</div>
+  </header>
+
+  <!-- ===================== SETUP ===================== -->
+  <div id="setupView">
+    <div class="warn amber" id="setupWarn"></div>
+    <div class="grid2">
+      <div class="field"><label for="leftStartSetup">LEFT START (GAL)</label>
+        <input type="text" inputmode="decimal" id="leftStartSetup" value="46.0"></div>
+      <div class="field"><label for="rightStartSetup">RIGHT START (GAL)</label>
+        <input type="text" inputmode="decimal" id="rightStartSetup" value="46.0"></div>
+    </div>
+    <div class="field"><label for="totalEntered">TOTAL ENTERED IN TOTALIZER (GAL)</label>
+      <input type="text" inputmode="decimal" id="totalEntered" value="92.0"></div>
+    <div class="field"><label>TAKEOFF TANK</label>
+      <div class="toggle">
+        <button type="button" id="takeoffLeft">LEFT</button>
+        <button type="button" id="takeoffRight" class="active">RIGHT</button>
+      </div>
+    </div>
+    <button type="button" class="btn" id="startBtn" style="min-height:60px">Start flight</button>
+  </div>
+
+  <!-- ===================== FLIGHT ===================== -->
+  <div id="flightView" class="hidden">
+    <div class="hero">
+      <div>
+        <label style="margin-bottom:2px">TOTAL REMAINING</label>
+        <div class="num"><span id="totalRem">92.0</span> <small>gal</small></div>
+      </div>
+      <div class="side">
+        <span class="onchip" id="onChip">ON RIGHT</span><br>
+        used <b id="totalUsed">0.0</b> gal<br>
+        <span id="onTime"></span>
+      </div>
+    </div>
+
+    <div class="warn amber" id="mismatchWarn"></div>
+    <div class="warn red" id="errBox"></div>
+
+    <div class="tanks">
+      <div class="tank" id="leftCard">
+        <div class="thead"><span class="tname">LEFT</span>
+          <span><span class="onpill">ON</span><span class="lowpill">LOW</span></span></div>
+        <div class="rem"><span id="leftRem">46.0</span> <small>gal</small></div>
+        <div class="bar" id="leftBarWrap"><i id="leftBar"></i></div>
+        <div class="meta" id="leftMeta">100% &middot; used 0.0 gal</div>
+        <div class="startrow"><label for="leftStartFlight">START</label>
+          <input type="text" inputmode="decimal" id="leftStartFlight"></div>
+      </div>
+      <div class="tank right" id="rightCard">
+        <div class="thead"><span class="tname">RIGHT</span>
+          <span><span class="onpill">ON</span><span class="lowpill">LOW</span></span></div>
+        <div class="rem"><span id="rightRem">46.0</span> <small>gal</small></div>
+        <div class="bar" id="rightBarWrap"><i id="rightBar"></i></div>
+        <div class="meta" id="rightMeta">100% &middot; used 0.0 gal</div>
+        <div class="startrow"><label for="rightStartFlight">START</label>
+          <input type="text" inputmode="decimal" id="rightStartFlight"></div>
+      </div>
+    </div>
+
+    <div class="dock">
+      <label for="avidyneInput">TOTALIZER REMAINING (GAL)</label>
+      <input type="text" inputmode="decimal" id="avidyneInput" placeholder="92.0">
+      <div class="preview" id="preview"></div>
+      <button type="button" class="btn switchbtn" id="switchBtn">&#8646; Switch to LEFT</button>
+      <div class="status" id="statusLine"></div>
+    </div>
+
+    <div class="logtitle">FLIGHT LOG</div>
+    <div id="logWrap"></div>
+
+    <div class="btnrow" style="margin-top:18px">
+      <button type="button" class="btn ghost" id="undoBtn">Undo last</button>
+      <button type="button" class="btn ghost" id="newFlightBtn">New flight</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== NEW FLIGHT MODAL ===================== -->
+<div class="modalwrap" id="modalWrap">
+  <div class="modal">
+    <h2>Start a new flight?</h2>
+    <div class="stack">
+      <button type="button" class="btn danger" id="clearLogBtn">Clear log</button>
+      <button type="button" class="btn" id="keepBtn">Keep it</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY = "sr22t-tank-tracker-v3", OLDKEYS = ["sr22t-tank-tracker-v2", "sr22t-tank-tracker-v1"];
+  var $ = function(id){ return document.getElementById(id); };
+
+  var S = {
+    leftStart:46.0, rightStart:46.0, totalEntered:92.0,
+    takeoff:"R", started:false, current:"R", lastReading:92.0,
+    startedAt:0, currentSince:0, log:[]
+    /* log entry: {ts, time, reading, tank, used, tankAfter} */
+  };
+  var totalManual = false, wakeLock = null;
+
+  function num(v, dflt){ var n = parseFloat(v); return isFinite(n) ? n : dflt; }
+  function fmt(n){ return (Math.round(n*10)/10).toFixed(1); }
+  function nowTime(){ var d=new Date(); function p(x){ return (x<10?"0":"")+x; } return p(d.getHours())+":"+p(d.getMinutes()); }
+  function other(t){ return t === "L" ? "R" : "L"; }
+  function name(t){ return t === "L" ? "LEFT" : "RIGHT"; }
+  function buzz(){ try{ if(navigator.vibrate) navigator.vibrate(15); }catch(e){} }
+
+  var storageOK = true;
+  function storageUsable(){
+    try{
+      if(location.protocol === "data:" || location.protocol === "file:" || location.origin === "null") return false;
+      var k = KEY + "-probe"; localStorage.setItem(k, "1"); var ok = localStorage.getItem(k) === "1"; localStorage.removeItem(k); return ok;
+    }catch(e){ return false; }
+  }
+  function flagStorageBad(){ storageOK = false; var w = $("storageWarn"); if(w) w.classList.add("show"); }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ flagStorageBad(); } }
+  window.addEventListener("pagehide", save);
+  document.addEventListener("visibilitychange", function(){ if(document.visibilityState === "hidden") save(); });
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw){ var o = JSON.parse(raw);
+        ["leftStart","rightStart","totalEntered","takeoff","started","current","lastReading","startedAt","currentSince"].forEach(function(k){
+          if(o.hasOwnProperty(k)) S[k] = o[k];
+        });
+        if(o.log && o.log.length && o.log[0].hasOwnProperty("tankAfter")) S.log = o.log;
+      } else {
+        /* older saved state: carry over the setup numbers only — the
+           takeoff tank now defaults to RIGHT and must not be overridden
+           by the old LEFT default */
+        for(var i=0;i<OLDKEYS.length;i++){
+          var old = localStorage.getItem(OLDKEYS[i]);
+          if(old){ var p = JSON.parse(old);
+            ["leftStart","rightStart","totalEntered"].forEach(function(k){
+              if(p.hasOwnProperty(k)) S[k] = p[k];
+            });
+            break;
+          }
+        }
+      }
+    }catch(e){}
+  }
+
+  function usedTotals(){
+    var u = {L:0, R:0};
+    for(var i=0;i<S.log.length;i++){ u[S.log[i].tank] += S.log[i].used; }
+    return u;
+  }
+  function remainings(){
+    var u = usedTotals();
+    return { L: S.leftStart - u.L, R: S.rightStart - u.R, usedL: u.L, usedR: u.R };
+  }
+
+  function keepAwake(){
+    try{
+      if(navigator.wakeLock && document.visibilityState === "visible"){
+        navigator.wakeLock.request("screen").then(function(w){ wakeLock = w; }).catch(function(){});
+      }
+    }catch(e){}
+  }
+
+  /* ---------- validation / preview ---------- */
+  function readInput(){
+    var v = $("avidyneInput").value;
+    if(v === null || String(v).trim() === "") return {kind:"empty"};
+    var n = parseFloat(v);
+    if(!isFinite(n)) return {kind:"bad"};
+    return {kind:"num", value:n};
+  }
+  function checkReading(r){
+    var rem = remainings();
+    var curRem = S.current === "L" ? rem.L : rem.R;
+    if(r < 0) return "Negative reading.";
+    if(r > S.lastReading + 0.001)
+      return "Higher than last reading (" + fmt(S.lastReading) + " gal).";
+    if(S.lastReading - r > curRem + 0.05)
+      return "Would empty " + name(S.current) + " \u2014 check reading or start value.";
+    return null;
+  }
+  function updatePreview(){
+    var pv = $("preview"), inp = $("avidyneInput"), btn = $("switchBtn");
+    btn.innerHTML = "&#8646; Switch to " + name(other(S.current));
+    if(!S.started){ pv.textContent = ""; return; }
+    var r = readInput();
+    inp.classList.remove("invalid");
+    pv.classList.remove("bad");
+    if(r.kind === "empty" || (r.kind === "num" && Math.abs(r.value - S.lastReading) < 0.001)){
+      pv.textContent = "";
+      return;
+    }
+    if(r.kind === "bad"){ pv.textContent = "Not a number."; pv.classList.add("bad"); inp.classList.add("invalid"); return; }
+    var err = checkReading(r.value);
+    if(err){ pv.textContent = err; pv.classList.add("bad"); inp.classList.add("invalid"); return; }
+    var leg = S.lastReading - r.value, rem = remainings();
+    var newL = S.current === "L" ? rem.L - leg : rem.L;
+    var newR = S.current === "R" ? rem.R - leg : rem.R;
+    pv.textContent = "LEFT " + fmt(newL) + " \u00B7 RIGHT " + fmt(newR) + " \u00B7 Total " + fmt(newL + newR);
+  }
+  function showError(msg){
+    var b = $("errBox");
+    if(msg){ b.textContent = "\u26A0 " + msg; b.classList.add("show"); $("avidyneInput").classList.add("invalid"); }
+    else { b.classList.remove("show"); $("avidyneInput").classList.remove("invalid"); }
+  }
+  function setStatus(msg){ $("statusLine").textContent = msg || ""; }
+
+  /* ---------- rendering ---------- */
+  function tankRender(side, remVal, usedVal, startVal, cardId, remId, barId, wrapId, metaId){
+    $(remId).textContent = fmt(remVal);
+    var pct = startVal > 0 ? Math.max(0, Math.min(100, remVal / startVal * 100)) : 0;
+    $(barId).style.width = pct + "%";
+    var wrap = $(wrapId);
+    wrap.classList.toggle("warnbar", pct < 30 && pct >= 15);
+    wrap.classList.toggle("lowbar", pct < 15);
+    $(cardId).classList.toggle("low", remVal <= 5 && S.started);
+    $(metaId).textContent = Math.round(pct) + "% \u00B7 used " + fmt(usedVal) + " gal";
+  }
+  function render(){
+    $("setupView").classList.toggle("hidden", S.started);
+    $("flightView").classList.toggle("hidden", !S.started);
+    $("takeoffLeft").classList.toggle("active", S.takeoff === "L");
+    $("takeoffRight").classList.toggle("active", S.takeoff === "R");
+    renderSetupWarn();
+    if(!S.started) return;
+
+    var rem = remainings();
+    if(document.activeElement !== $("leftStartFlight"))  $("leftStartFlight").value  = fmt(S.leftStart);
+    if(document.activeElement !== $("rightStartFlight")) $("rightStartFlight").value = fmt(S.rightStart);
+    tankRender("L", rem.L, rem.usedL, S.leftStart, "leftCard", "leftRem", "leftBar", "leftBarWrap", "leftMeta");
+    tankRender("R", rem.R, rem.usedR, S.rightStart, "rightCard", "rightRem", "rightBar", "rightBarWrap", "rightMeta");
+    $("leftCard").classList.toggle("active", S.current === "L");
+    $("rightCard").classList.toggle("active", S.current === "R");
+    $("totalRem").textContent = fmt(rem.L + rem.R);
+    $("totalUsed").textContent = fmt(rem.usedL + rem.usedR);
+    $("onChip").textContent = "ON " + name(S.current);
+    $("undoBtn").disabled = !S.log.length;
+    renderOnTime();
+
+    var sum = S.leftStart + S.rightStart, warn = $("mismatchWarn");
+    if(Math.abs(sum - S.totalEntered) > 0.001){
+      warn.textContent = "\u26A0 Starts: " + fmt(S.leftStart) + " + " + fmt(S.rightStart) + " = " + fmt(sum) +
+        " gal \u2260 totalizer total " + fmt(S.totalEntered) + " gal.";
+      warn.classList.add("show");
+    } else warn.classList.remove("show");
+
+    renderLog();
+    updatePreview();
+  }
+  function renderOnTime(){
+    if(!S.started || !S.currentSince){ $("onTime") && ($("onTime").textContent = ""); return; }
+    var mins = Math.max(0, Math.round((Date.now() - S.currentSince) / 60000));
+    $("onTime").textContent = "on " + name(S.current) + " for " +
+      (mins < 60 ? mins + " min" : Math.floor(mins/60) + " h " + (mins%60) + " min");
+  }
+  function renderLog(){
+    var wrap = $("logWrap");
+    if(!S.log.length){ wrap.innerHTML = '<div class="emptylog">No switches logged yet.</div>'; return; }
+    var cum = {L:0, R:0}, rows = [];
+    for(var i=0;i<S.log.length;i++){
+      var e = S.log[i]; cum[e.tank] += e.used;
+      rows.push({e:e, L:S.leftStart - cum.L, R:S.rightStart - cum.R});
+    }
+    var html = "";
+    for(var j=rows.length-1;j>=0;j--){
+      var r = rows[j];
+      html += '<div class="logrow"><div class="l1"><span>' + r.e.time + '</span>' + fmt(r.e.reading) + ' gal</div>' +
+        '<div class="l2"><b>' + name(r.e.tank) + ' \u2192 ' + name(r.e.tankAfter) + '</b> \u00B7 \u2212' + fmt(r.e.used) + ' gal<br>' +
+        'L ' + fmt(r.L) + ' \u00B7 R ' + fmt(r.R) + '</div></div>';
+    }
+    wrap.innerHTML = html;
+  }
+  function renderSetupWarn(){
+    var w = $("setupWarn");
+    if(S.started){ w.classList.remove("show"); return; }
+    var l = num($("leftStartSetup").value, NaN), r = num($("rightStartSetup").value, NaN),
+        t = num($("totalEntered").value, NaN);
+    if(isFinite(l) && isFinite(r) && isFinite(t) && Math.abs(l + r - t) > 0.001){
+      w.textContent = "\u26A0 Left + right = " + fmt(l + r) + " gal \u2260 total " + fmt(t) + " gal.";
+      w.classList.add("show");
+    } else w.classList.remove("show");
+  }
+
+  /* ---------- actions ---------- */
+  function doSwitch(){
+    if(!S.started) return;
+    var target = other(S.current), r = readInput();
+    if(r.kind === "empty" || (r.kind === "num" && Math.abs(r.value - S.lastReading) < 0.001)){
+      /* selector correction only — no leg, no log row */
+      S.current = target; S.currentSince = Date.now();
+      showError(null);
+      setStatus("On " + name(target) + " \u00B7 nothing logged");
+      save(); render(); return;
+    }
+    if(r.kind === "bad"){ showError("Enter a number first."); return; }
+    var err = checkReading(r.value);
+    if(err){ showError(err); return; }
+    showError(null);
+    var leg = S.lastReading - r.value;
+    S.log.push({ts:Date.now(), time:nowTime(), reading:r.value, tank:S.current, used:leg, tankAfter:target});
+    S.current = target; S.currentSince = Date.now(); S.lastReading = r.value;
+    $("avidyneInput").value = fmt(r.value);
+    setStatus(fmt(leg) + " gal from " + name(other(target)) + " \u00B7 on " + name(target));
+    buzz();
+    save(); render();
+  }
+  function undoLast(){
+    if(!S.log.length) return;
+    S.log.pop();
+    if(S.log.length){
+      var last = S.log[S.log.length-1];
+      S.lastReading = last.reading; S.current = last.tankAfter; S.currentSince = last.ts;
+    } else {
+      S.lastReading = S.totalEntered; S.current = S.takeoff; S.currentSince = S.startedAt;
+    }
+    $("avidyneInput").value = fmt(S.lastReading);
+    showError(null); setStatus("Undone.");
+    save(); render();
+  }
+
+  /* ---------- wiring ---------- */
+  $("takeoffLeft").addEventListener("click", function(){ S.takeoff = "L"; save(); render(); });
+  $("takeoffRight").addEventListener("click", function(){ S.takeoff = "R"; save(); render(); });
+
+  $("leftStartSetup").addEventListener("input", function(){
+    if(!totalManual){
+      var l = parseFloat(this.value), r = parseFloat($("rightStartSetup").value);
+      if(isFinite(l) && isFinite(r)) $("totalEntered").value = fmt(l + r);
+    }
+    renderSetupWarn();
+  });
+  $("rightStartSetup").addEventListener("input", function(){
+    if(!totalManual){
+      var l = parseFloat($("leftStartSetup").value), r = parseFloat(this.value);
+      if(isFinite(l) && isFinite(r)) $("totalEntered").value = fmt(l + r);
+    }
+    renderSetupWarn();
+  });
+  $("totalEntered").addEventListener("input", function(){ totalManual = true; renderSetupWarn(); });
+
+  $("startBtn").addEventListener("click", function(){
+    S.leftStart    = num($("leftStartSetup").value, 46.0);
+    S.rightStart   = num($("rightStartSetup").value, 46.0);
+    S.totalEntered = num($("totalEntered").value, S.leftStart + S.rightStart);
+    S.started = true; S.current = S.takeoff; S.lastReading = S.totalEntered;
+    S.startedAt = Date.now(); S.currentSince = S.startedAt; S.log = [];
+    $("avidyneInput").value = fmt(S.lastReading);
+    showError(null); setStatus("");
+    keepAwake();
+    save(); render();
+  });
+
+  $("switchBtn").addEventListener("click", doSwitch);
+  $("undoBtn").addEventListener("click", undoLast);
+  $("avidyneInput").addEventListener("focus", function(){
+    /* tap-to-clear: the box is refilled with the last reading after each
+       switch, so clear it on tap and let the pilot type over nothing */
+    this.value = ""; showError(null); updatePreview();
+  });
+  $("avidyneInput").addEventListener("click", function(){
+    /* a second tap while the box is already focused (no new focus event)
+       also clears it — but only when it still shows the last reading,
+       never a half-typed new one */
+    if(S.started && this.value === fmt(S.lastReading)){ this.value = ""; updatePreview(); }
+  });
+  $("avidyneInput").addEventListener("blur", function(){
+    /* leaving the box empty restores the last reading, so the field never
+       sits blank by accident; Switch with an empty box still just moves
+       the selector, because the restored value equals the last reading */
+    if(String(this.value).trim() === "" && S.started) this.value = fmt(S.lastReading);
+  });
+  $("avidyneInput").addEventListener("input", function(){ showError(null); updatePreview(); });
+  $("avidyneInput").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); doSwitch(); } });
+
+  $("leftStartFlight").addEventListener("input", function(){
+    var n = parseFloat(this.value); if(isFinite(n)){ S.leftStart = n; save(); render(); }
+  });
+  $("rightStartFlight").addEventListener("input", function(){
+    var n = parseFloat(this.value); if(isFinite(n)){ S.rightStart = n; save(); render(); }
+  });
+
+  $("newFlightBtn").addEventListener("click", function(){ $("modalWrap").classList.add("show"); });
+  $("keepBtn").addEventListener("click", function(){ $("modalWrap").classList.remove("show"); });
+  $("modalWrap").addEventListener("click", function(e){ if(e.target === this) this.classList.remove("show"); });
+  $("clearLogBtn").addEventListener("click", function(){
+    $("modalWrap").classList.remove("show");
+    S.started = false; S.log = []; S.current = S.takeoff;
+    S.lastReading = S.totalEntered; totalManual = false;
+    $("leftStartSetup").value = fmt(S.leftStart);
+    $("rightStartSetup").value = fmt(S.rightStart);
+    $("totalEntered").value = fmt(S.totalEntered);
+    showError(null); setStatus("");
+    save(); render();
+  });
+  if(document.addEventListener) document.addEventListener("visibilitychange", keepAwake);
+  if(typeof setInterval !== "undefined") setInterval(renderOnTime, 30000);
+
+  /* ---------- init ---------- */
+  load();
+  if(!storageUsable()) flagStorageBad();
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+  (function(){
+    var el = $("offlineLine");
+    function ready(){ if(el){ el.textContent = "Offline ready \u2713"; el.classList.add("ready"); } }
+    function checking(msg){ if(el && !el.classList.contains("ready")) el.textContent = msg; }
+    try{
+      if(location.protocol !== "https:"){ checking("Offline: not in this copy \u2014 use hosted version"); return; }
+      if(!("serviceWorker" in navigator)){ checking("Offline: not supported here"); return; }
+      if(navigator.serviceWorker.controller) ready();
+      navigator.serviceWorker.addEventListener("controllerchange", ready);
+      if("caches" in window) caches.match("./index.html", {ignoreSearch:true}).then(function(hit){ if(hit) ready(); else checking("Offline: caching\u2026 stay on Wi-Fi, then reopen"); }).catch(function(){});
+      navigator.serviceWorker.register("sw.js").then(function(){
+        if(navigator.serviceWorker.controller) ready();
+        else checking("Offline: caching\u2026 stay on Wi-Fi, then reopen");
+      }).catch(function(){ checking("Offline: cache failed"); });
+    }catch(e){ checking("Offline: cache failed"); }
+  })();
+  if(S.started){
+    $("avidyneInput").value = fmt(S.lastReading);
+    keepAwake();
+  } else {
+    $("leftStartSetup").value = fmt(S.leftStart);
+    $("rightStartSetup").value = fmt(S.rightStart);
+    $("totalEntered").value = fmt(S.totalEntered);
+  }
+  render();
+})();
+</script>
+</body>
+</html>

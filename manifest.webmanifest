@@ -1,0 +1,17 @@
+{
+  "name": "SR22T Fuel",
+  "short_name": "SR22T Fuel",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#dfe7ec",
+  "theme_color": "#0e5f6b",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
