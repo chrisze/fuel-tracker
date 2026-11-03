@@ -1,6 +1,6 @@
 // SR22T Tank Tracker - offline cache. Bump VERSION to force an update.
-const VERSION = "sr22t-v7";
-const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
+const VERSION = "sr22t-v8";
+const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
