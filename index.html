@@ -43,6 +43,7 @@
     }
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%; text-size-adjust:100%}
   html,body{margin:0;padding:0}
   body{
     background:var(--bg); color:var(--ink);
@@ -590,15 +591,22 @@
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
   (function(){
     var el = $("offlineLine");
-    function ready(){ if(el){ el.textContent = "Offline ready \u2713"; el.classList.add("ready"); } }
+    var hadController = ("serviceWorker" in navigator) && !!navigator.serviceWorker.controller;
+    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v11"; el.classList.add("ready"); } }
     function checking(msg){ if(el && !el.classList.contains("ready")) el.textContent = msg; }
     try{
       if(location.protocol !== "https:"){ checking("Offline: not in this copy \u2014 use hosted version"); return; }
       if(!("serviceWorker" in navigator)){ checking("Offline: not supported here"); return; }
       if(navigator.serviceWorker.controller) ready();
-      navigator.serviceWorker.addEventListener("controllerchange", ready);
+      navigator.serviceWorker.addEventListener("controllerchange", function(){
+        ready();
+        /* a new service worker took over mid-session: reload once into the
+           new build so updates apply without a manual close/reopen dance */
+        if(hadController) location.reload();
+      });
       if("caches" in window) caches.match("./index.html", {ignoreSearch:true}).then(function(hit){ if(hit) ready(); else checking("Offline: caching\u2026 stay on Wi-Fi, then reopen"); }).catch(function(){});
-      navigator.serviceWorker.register("sw.js").then(function(){
+      navigator.serviceWorker.register("sw.js").then(function(reg){
+        try{ if(reg && reg.update) reg.update(); }catch(e){}
         if(navigator.serviceWorker.controller) ready();
         else checking("Offline: caching\u2026 stay on Wi-Fi, then reopen");
       }).catch(function(){ checking("Offline: cache failed"); });
