@@ -112,17 +112,17 @@
   .tanks{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:6px}
   .tank{border:2px solid var(--line); border-radius:16px; padding:13px 13px 12px; min-width:0}
   .tank.active{border-color:var(--teal); background:var(--tank-active-bg)}
-  .tank .thead{display:flex; justify-content:space-between; align-items:center; margin-bottom:2px}
+  .tank .thead{display:flex; justify-content:space-between; align-items:center; margin-bottom:2px; min-height:20px}
   .tank .tname{font-size:13px; font-weight:800; letter-spacing:1.4px}
-  .onpill{display:none; font-size:10px; font-weight:800; letter-spacing:1px; background:var(--teal);
+  .onpill{visibility:hidden; font-size:10px; font-weight:800; letter-spacing:1px; background:var(--teal);
+    color:#fff; border-radius:20px; padding:3px 9px; margin-right:5px}
+  .tank.active .onpill{visibility:visible}
+  .lowpill{visibility:hidden; font-size:10px; font-weight:800; letter-spacing:1px; background:var(--red);
     color:#fff; border-radius:20px; padding:3px 9px}
-  .tank.active .onpill{display:inline-block}
-  .lowpill{display:none; font-size:10px; font-weight:800; letter-spacing:1px; background:var(--red);
-    color:#fff; border-radius:20px; padding:3px 9px}
-  .tank.low .lowpill{display:inline-block}
-  .tank.low .onpill{display:none}
-  .tank.active.low .onpill{display:inline-block; margin-right:5px}
-  .tank.active.low .lowpill{display:inline-block}
+  .tank.low .lowpill{visibility:visible}
+  .tank.low .onpill{visibility:hidden}
+  .tank.active.low .onpill{visibility:visible}
+  .tank.active.low .lowpill{visibility:visible}
   .tank .rem{font-size:31px; font-weight:800; line-height:1.15; font-variant-numeric:tabular-nums}
   .tank .rem small{font-size:14px; font-weight:600; color:var(--muted)}
   .bar{height:11px; border-radius:6px; background:var(--bar-track); overflow:hidden; margin:7px 0 8px}
