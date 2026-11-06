@@ -218,7 +218,7 @@
       </div>
       <div class="side">
         <span class="onchip" id="onChip">ON RIGHT</span><br>
-        remaining <b id="totalRemSide">92.0</b> gal<br>
+        used <b id="totalUsed">0.0</b> gal<br>
         <span id="onTime"></span>
       </div>
     </div>
@@ -446,7 +446,7 @@
     $("leftCard").classList.toggle("active", S.current === "L");
     $("rightCard").classList.toggle("active", S.current === "R");
     $("totalRem").textContent = fmt(rem.L + rem.R);
-    $("totalRemSide").textContent = fmt(rem.L + rem.R);
+    $("totalUsed").textContent = fmt(rem.usedL + rem.usedR);
     $("onChip").textContent = "ON " + name(S.current);
     $("undoBtn").disabled = !S.log.length;
     renderOnTime();
@@ -478,7 +478,7 @@
     var html = "";
     for(var j=rows.length-1;j>=0;j--){
       var r = rows[j];
-      html += '<div class="logrow"><div class="l1"><span>' + r.e.time + '</span>' + fmt(r.e.reading) + ' gal</div>' +
+      html += '<div class="logrow"><div class="l1"><span>' + r.e.time + '</span>' + fmt(S.totalEntered - r.e.reading) + ' gal rem</div>' +
         '<div class="l2"><b>' + name(r.e.tank) + ' \u2192 ' + name(r.e.tankAfter) + '</b> \u00B7 \u2212' + fmt(r.e.used) + ' gal<br>' +
         'L ' + fmt(r.L) + ' \u00B7 R ' + fmt(r.R) + '</div></div>';
     }
@@ -616,7 +616,7 @@
   (function(){
     var el = $("offlineLine");
     var hadController = ("serviceWorker" in navigator) && !!navigator.serviceWorker.controller;
-    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v15"; el.classList.add("ready"); } }
+    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v16"; el.classList.add("ready"); } }
     function checking(msg){ if(el && !el.classList.contains("ready")) el.textContent = msg; }
     try{
       if(location.protocol !== "https:"){ checking("Offline: not in this copy \u2014 use hosted version"); return; }
