@@ -616,7 +616,7 @@
   (function(){
     var el = $("offlineLine");
     var hadController = ("serviceWorker" in navigator) && !!navigator.serviceWorker.controller;
-    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v13"; el.classList.add("ready"); } }
+    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v14"; el.classList.add("ready"); } }
     function checking(msg){ if(el && !el.classList.contains("ready")) el.textContent = msg; }
     try{
       if(location.protocol !== "https:"){ checking("Offline: not in this copy \u2014 use hosted version"); return; }
