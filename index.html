@@ -405,6 +405,10 @@
       return;
     }
     if(r.kind === "bad"){ pv.textContent = "Not a number."; pv.classList.add("bad"); inp.classList.add("invalid"); return; }
+    /* Below the last used reading is not yet an error: the pilot may
+       still be typing (the "1" of "12" is below a last reading of 6.0).
+       Stay silent here; doSwitch still rejects a lower final value. */
+    if(r.value < S.lastUsed - 0.001){ pv.textContent = ""; return; }
     var err = checkReading(r.value);
     if(err){ pv.textContent = err; pv.classList.add("bad"); inp.classList.add("invalid"); return; }
     var leg = r.value - S.lastUsed, rem = remainings();
@@ -616,7 +620,7 @@
   (function(){
     var el = $("offlineLine");
     var hadController = ("serviceWorker" in navigator) && !!navigator.serviceWorker.controller;
-    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v16"; el.classList.add("ready"); } }
+    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v17"; el.classList.add("ready"); } }
     function checking(msg){ if(el && !el.classList.contains("ready")) el.textContent = msg; }
     try{
       if(location.protocol !== "https:"){ checking("Offline: not in this copy \u2014 use hosted version"); return; }
