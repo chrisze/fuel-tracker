@@ -22,7 +22,7 @@
     --amber:#9a6a00; --amber-bg:#fff3d1; --amber-bar:#e8a33d; --amber-border:#ecc964; --amber-ink:#6d4c00;
     --warn-bg:#fdecea; --warn-ink:#7a1710;
     --input-bg:#fbfcfd; --ghost-active:#f0f4f5; --track:#eef3f5;
-    --tank-active-bg:#fbfefe; --bar-track:#e8eef1; --bar-right:#40606d; --row-line:#edf1f3;
+    --tank-active-bg:#fbfefe; --bar-track:#e8eef1; --row-line:#edf1f3;
     --status:#0a4750; --shadow:rgba(18,45,55,.10); --btn-shadow:rgba(14,95,107,.35);
     --switch-shadow:rgba(14,95,107,.30); --scrim:rgba(13,32,39,.48);
     --radius:18px;
@@ -37,7 +37,7 @@
       --amber:#e8b34b; --amber-bg:#3a2f14; --amber-bar:#e8a33d; --amber-border:#8a6d2f; --amber-ink:#f0cd7e;
       --warn-bg:#3d2321; --warn-ink:#ffb4ab;
       --input-bg:#141f24; --ghost-active:#24333a; --track:#141f24;
-      --tank-active-bg:#16262b; --bar-track:#2c3d44; --bar-right:#5f8291; --row-line:#27363d;
+      --tank-active-bg:#16262b; --bar-track:#2c3d44; --row-line:#27363d;
       --status:#7fc6d4; --shadow:rgba(0,0,0,.45); --btn-shadow:rgba(0,0,0,.40);
       --switch-shadow:rgba(0,0,0,.40); --scrim:rgba(0,0,0,.60);
     }
@@ -129,7 +129,6 @@
   .bar{height:11px; border-radius:6px; background:var(--bar-track); overflow:hidden; margin:7px 0 8px}
   .bar>i{display:block; height:100%; background:var(--teal); width:100%; border-radius:6px;
     transition:width .35s ease}
-  .tank.right .bar>i{background:var(--bar-right)}
   .tank .bar.warnbar>i{background:var(--amber-bar)}
   .tank .bar.lowbar>i{background:var(--red)}
   .tank .meta{color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums}
@@ -236,7 +235,7 @@
         <div class="startrow"><label for="leftStartFlight">START</label>
           <input type="text" inputmode="decimal" id="leftStartFlight"></div>
       </div>
-      <div class="tank right" id="rightCard">
+      <div class="tank" id="rightCard">
         <div class="thead"><span class="tname">RIGHT</span>
           <span><span class="onpill">ON</span><span class="lowpill">LOW</span></span></div>
         <div class="rem"><span id="rightRem">46.0</span> <small>gal</small></div>
@@ -620,7 +619,7 @@
   (function(){
     var el = $("offlineLine");
     var hadController = ("serviceWorker" in navigator) && !!navigator.serviceWorker.controller;
-    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v17"; el.classList.add("ready"); } }
+    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v18"; el.classList.add("ready"); } }
     function checking(msg){ if(el && !el.classList.contains("ready")) el.textContent = msg; }
     try{
       if(location.protocol !== "https:"){ checking("Offline: not in this copy \u2014 use hosted version"); return; }
