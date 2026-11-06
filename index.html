@@ -198,7 +198,7 @@
       <div class="field"><label for="rightStartSetup">RIGHT START (GAL)</label>
         <input type="text" inputmode="decimal" id="rightStartSetup" value="46.0"></div>
     </div>
-    <div class="field"><label for="totalEntered">TOTAL ENTERED IN TOTALIZER (GAL)</label>
+    <div class="field"><label for="totalEntered">TOTAL FUEL AT START (GAL)</label>
       <input type="text" inputmode="decimal" id="totalEntered" value="92.0"></div>
     <div class="field"><label>TAKEOFF TANK</label>
       <div class="toggle">
@@ -213,12 +213,12 @@
   <div id="flightView" class="hidden">
     <div class="hero">
       <div>
-        <label style="margin-bottom:2px">TOTAL REMAINING</label>
-        <div class="num"><span id="totalRem">92.0</span> <small>gal</small></div>
+        <label style="margin-bottom:2px">TOTAL USED</label>
+        <div class="num"><span id="totalUsed">0.0</span> <small>gal</small></div>
       </div>
       <div class="side">
         <span class="onchip" id="onChip">ON RIGHT</span><br>
-        used <b id="totalUsed">0.0</b> gal<br>
+        remaining <b id="totalRem">92.0</b> gal<br>
         <span id="onTime"></span>
       </div>
     </div>
@@ -230,26 +230,26 @@
       <div class="tank" id="leftCard">
         <div class="thead"><span class="tname">LEFT</span>
           <span><span class="onpill">ON</span><span class="lowpill">LOW</span></span></div>
-        <div class="rem"><span id="leftRem">46.0</span> <small>gal</small></div>
+        <div class="rem"><span id="leftUsed">0.0</span> <small>gal used</small></div>
         <div class="bar" id="leftBarWrap"><i id="leftBar"></i></div>
-        <div class="meta" id="leftMeta">100% &middot; used 0.0 gal</div>
+        <div class="meta" id="leftMeta">46.0 gal remaining &middot; 100% left</div>
         <div class="startrow"><label for="leftStartFlight">START</label>
           <input type="text" inputmode="decimal" id="leftStartFlight"></div>
       </div>
       <div class="tank right" id="rightCard">
         <div class="thead"><span class="tname">RIGHT</span>
           <span><span class="onpill">ON</span><span class="lowpill">LOW</span></span></div>
-        <div class="rem"><span id="rightRem">46.0</span> <small>gal</small></div>
+        <div class="rem"><span id="rightUsed">0.0</span> <small>gal used</small></div>
         <div class="bar" id="rightBarWrap"><i id="rightBar"></i></div>
-        <div class="meta" id="rightMeta">100% &middot; used 0.0 gal</div>
+        <div class="meta" id="rightMeta">46.0 gal remaining &middot; 100% left</div>
         <div class="startrow"><label for="rightStartFlight">START</label>
           <input type="text" inputmode="decimal" id="rightStartFlight"></div>
       </div>
     </div>
 
     <div class="dock">
-      <label for="avidyneInput">TOTALIZER REMAINING (GAL)</label>
-      <input type="text" inputmode="decimal" id="avidyneInput" placeholder="92.0">
+      <label for="usedInput">FUEL USED &mdash; TOTALIZER (GAL)</label>
+      <input type="text" inputmode="decimal" id="usedInput" placeholder="0.0">
       <div class="preview" id="preview"></div>
       <button type="button" class="btn switchbtn" id="switchBtn">&#8646; Switch to LEFT</button>
       <div class="status" id="statusLine"></div>
@@ -279,14 +279,18 @@
 <script>
 (function(){
   "use strict";
-  var KEY = "sr22t-tank-tracker-v3", OLDKEYS = ["sr22t-tank-tracker-v2", "sr22t-tank-tracker-v1"];
+  var KEY = "sr22t-tank-tracker-v4", OLDKEYS = ["sr22t-tank-tracker-v3", "sr22t-tank-tracker-v2", "sr22t-tank-tracker-v1"];
   var $ = function(id){ return document.getElementById(id); };
 
   var S = {
     leftStart:46.0, rightStart:46.0, totalEntered:92.0,
-    takeoff:"R", started:false, current:"R", lastReading:92.0,
+    takeoff:"R", started:false, current:"R", lastUsed:0.0,
     startedAt:0, currentSince:0, log:[]
-    /* log entry: {ts, time, reading, tank, used, tankAfter} */
+    /* log entry: {ts, time, reading, tank, used, tankAfter}
+       reading = cumulative fuel USED shown on the totalizer at the switch;
+       used = gallons burned on `tank` since the previous reading (the leg).
+       Remaining is never recorded — it is always calculated as
+       start fuel minus used, because the start fuel may not be exact. */
   };
   var totalManual = false, wakeLock = null;
 
@@ -312,22 +316,43 @@
     try{
       var raw = localStorage.getItem(KEY);
       if(raw){ var o = JSON.parse(raw);
-        ["leftStart","rightStart","totalEntered","takeoff","started","current","lastReading","startedAt","currentSince"].forEach(function(k){
+        ["leftStart","rightStart","totalEntered","takeoff","started","current","lastUsed","startedAt","currentSince"].forEach(function(k){
           if(o.hasOwnProperty(k)) S[k] = o[k];
         });
         if(o.log && o.log.length && o.log[0].hasOwnProperty("tankAfter")) S.log = o.log;
-      } else {
-        /* older saved state: carry over the setup numbers only — the
-           takeoff tank now defaults to RIGHT and must not be overridden
-           by the old LEFT default */
-        for(var i=0;i<OLDKEYS.length;i++){
-          var old = localStorage.getItem(OLDKEYS[i]);
-          if(old){ var p = JSON.parse(old);
-            ["leftStart","rightStart","totalEntered"].forEach(function(k){
-              if(p.hasOwnProperty(k)) S[k] = p[k];
-            });
-            break;
-          }
+        return;
+      }
+      /* v3 stored the totalizer REMAINING reading (lastReading). If a v3
+         flight is in progress, convert it: cumulative used so far is
+         totalEntered - lastReading, and each log reading converts the
+         same way. Leg amounts (used) are unchanged. */
+      var v3 = localStorage.getItem("sr22t-tank-tracker-v3");
+      if(v3){ var m = JSON.parse(v3);
+        ["leftStart","rightStart","totalEntered","takeoff","started","current","startedAt","currentSince"].forEach(function(k){
+          if(m.hasOwnProperty(k)) S[k] = m[k];
+        });
+        if(m.hasOwnProperty("lastReading") && isFinite(m.lastReading))
+          S.lastUsed = Math.max(0, S.totalEntered - m.lastReading);
+        if(m.log && m.log.length && m.log[0].hasOwnProperty("tankAfter")){
+          S.log = m.log.map(function(e){
+            var c = {}; for(var k in e) c[k] = e[k];
+            if(isFinite(c.reading)) c.reading = S.totalEntered - c.reading;
+            return c;
+          });
+        }
+        if(S.started) save();
+        return;
+      }
+      /* older saved state: carry over the setup numbers only — the
+         takeoff tank now defaults to RIGHT and must not be overridden
+         by the old LEFT default */
+      for(var i=1;i<OLDKEYS.length;i++){
+        var old = localStorage.getItem(OLDKEYS[i]);
+        if(old){ var p = JSON.parse(old);
+          ["leftStart","rightStart","totalEntered"].forEach(function(k){
+            if(p.hasOwnProperty(k)) S[k] = p[k];
+          });
+          break;
         }
       }
     }catch(e){}
@@ -353,7 +378,7 @@
 
   /* ---------- validation / preview ---------- */
   function readInput(){
-    var v = $("avidyneInput").value;
+    var v = $("usedInput").value;
     if(v === null || String(v).trim() === "") return {kind:"empty"};
     var n = parseFloat(v);
     if(!isFinite(n)) return {kind:"bad"};
@@ -363,48 +388,48 @@
     var rem = remainings();
     var curRem = S.current === "L" ? rem.L : rem.R;
     if(r < 0) return "Negative reading.";
-    if(r > S.lastReading + 0.001)
-      return "Higher than last reading (" + fmt(S.lastReading) + " gal).";
-    if(S.lastReading - r > curRem + 0.05)
+    if(r < S.lastUsed - 0.001)
+      return "Lower than last used reading (" + fmt(S.lastUsed) + " gal used).";
+    if(r - S.lastUsed > curRem + 0.05)
       return "Would empty " + name(S.current) + " \u2014 check reading or start value.";
     return null;
   }
   function updatePreview(){
-    var pv = $("preview"), inp = $("avidyneInput"), btn = $("switchBtn");
+    var pv = $("preview"), inp = $("usedInput"), btn = $("switchBtn");
     btn.innerHTML = "&#8646; Switch to " + name(other(S.current));
     if(!S.started){ pv.textContent = ""; return; }
     var r = readInput();
     inp.classList.remove("invalid");
     pv.classList.remove("bad");
-    if(r.kind === "empty" || (r.kind === "num" && Math.abs(r.value - S.lastReading) < 0.001)){
+    if(r.kind === "empty" || (r.kind === "num" && Math.abs(r.value - S.lastUsed) < 0.001)){
       pv.textContent = "";
       return;
     }
     if(r.kind === "bad"){ pv.textContent = "Not a number."; pv.classList.add("bad"); inp.classList.add("invalid"); return; }
     var err = checkReading(r.value);
     if(err){ pv.textContent = err; pv.classList.add("bad"); inp.classList.add("invalid"); return; }
-    var leg = S.lastReading - r.value, rem = remainings();
+    var leg = r.value - S.lastUsed, rem = remainings();
     var newL = S.current === "L" ? rem.L - leg : rem.L;
     var newR = S.current === "R" ? rem.R - leg : rem.R;
-    pv.textContent = "LEFT " + fmt(newL) + " \u00B7 RIGHT " + fmt(newR) + " \u00B7 Total " + fmt(newL + newR);
+    pv.textContent = "Remaining: LEFT " + fmt(newL) + " \u00B7 RIGHT " + fmt(newR) + " \u00B7 Total " + fmt(newL + newR);
   }
   function showError(msg){
     var b = $("errBox");
-    if(msg){ b.textContent = "\u26A0 " + msg; b.classList.add("show"); $("avidyneInput").classList.add("invalid"); }
-    else { b.classList.remove("show"); $("avidyneInput").classList.remove("invalid"); }
+    if(msg){ b.textContent = "\u26A0 " + msg; b.classList.add("show"); $("usedInput").classList.add("invalid"); }
+    else { b.classList.remove("show"); $("usedInput").classList.remove("invalid"); }
   }
   function setStatus(msg){ $("statusLine").textContent = msg || ""; }
 
   /* ---------- rendering ---------- */
-  function tankRender(side, remVal, usedVal, startVal, cardId, remId, barId, wrapId, metaId){
-    $(remId).textContent = fmt(remVal);
+  function tankRender(side, remVal, usedVal, startVal, cardId, usedId, barId, wrapId, metaId){
+    $(usedId).textContent = fmt(usedVal);
     var pct = startVal > 0 ? Math.max(0, Math.min(100, remVal / startVal * 100)) : 0;
     $(barId).style.width = pct + "%";
     var wrap = $(wrapId);
     wrap.classList.toggle("warnbar", pct < 30 && pct >= 15);
     wrap.classList.toggle("lowbar", pct < 15);
     $(cardId).classList.toggle("low", remVal <= 5 && S.started);
-    $(metaId).textContent = Math.round(pct) + "% \u00B7 used " + fmt(usedVal) + " gal";
+    $(metaId).textContent = fmt(remVal) + " gal remaining \u00B7 " + Math.round(pct) + "% left";
   }
   function render(){
     $("setupView").classList.toggle("hidden", S.started);
@@ -417,8 +442,8 @@
     var rem = remainings();
     if(document.activeElement !== $("leftStartFlight"))  $("leftStartFlight").value  = fmt(S.leftStart);
     if(document.activeElement !== $("rightStartFlight")) $("rightStartFlight").value = fmt(S.rightStart);
-    tankRender("L", rem.L, rem.usedL, S.leftStart, "leftCard", "leftRem", "leftBar", "leftBarWrap", "leftMeta");
-    tankRender("R", rem.R, rem.usedR, S.rightStart, "rightCard", "rightRem", "rightBar", "rightBarWrap", "rightMeta");
+    tankRender("L", rem.L, rem.usedL, S.leftStart, "leftCard", "leftUsed", "leftBar", "leftBarWrap", "leftMeta");
+    tankRender("R", rem.R, rem.usedR, S.rightStart, "rightCard", "rightUsed", "rightBar", "rightBarWrap", "rightMeta");
     $("leftCard").classList.toggle("active", S.current === "L");
     $("rightCard").classList.toggle("active", S.current === "R");
     $("totalRem").textContent = fmt(rem.L + rem.R);
@@ -430,7 +455,7 @@
     var sum = S.leftStart + S.rightStart, warn = $("mismatchWarn");
     if(Math.abs(sum - S.totalEntered) > 0.001){
       warn.textContent = "\u26A0 Starts: " + fmt(S.leftStart) + " + " + fmt(S.rightStart) + " = " + fmt(sum) +
-        " gal \u2260 totalizer total " + fmt(S.totalEntered) + " gal.";
+        " gal \u2260 total fuel at start " + fmt(S.totalEntered) + " gal.";
       warn.classList.add("show");
     } else warn.classList.remove("show");
 
@@ -454,9 +479,9 @@
     var html = "";
     for(var j=rows.length-1;j>=0;j--){
       var r = rows[j];
-      html += '<div class="logrow"><div class="l1"><span>' + r.e.time + '</span>' + fmt(r.e.reading) + ' gal</div>' +
-        '<div class="l2"><b>' + name(r.e.tank) + ' \u2192 ' + name(r.e.tankAfter) + '</b> \u00B7 \u2212' + fmt(r.e.used) + ' gal<br>' +
-        'L ' + fmt(r.L) + ' \u00B7 R ' + fmt(r.R) + '</div></div>';
+      html += '<div class="logrow"><div class="l1"><span>' + r.e.time + '</span>' + fmt(r.e.reading) + ' gal used</div>' +
+        '<div class="l2"><b>' + name(r.e.tank) + ' \u2192 ' + name(r.e.tankAfter) + '</b> \u00B7 ' + fmt(r.e.used) + ' gal on ' + name(r.e.tank) + '<br>' +
+        'remaining L ' + fmt(r.L) + ' \u00B7 R ' + fmt(r.R) + '</div></div>';
     }
     wrap.innerHTML = html;
   }
@@ -475,7 +500,7 @@
   function doSwitch(){
     if(!S.started) return;
     var target = other(S.current), r = readInput();
-    if(r.kind === "empty" || (r.kind === "num" && Math.abs(r.value - S.lastReading) < 0.001)){
+    if(r.kind === "empty" || (r.kind === "num" && Math.abs(r.value - S.lastUsed) < 0.001)){
       /* selector correction only — no leg, no log row */
       S.current = target; S.currentSince = Date.now();
       showError(null);
@@ -486,10 +511,10 @@
     var err = checkReading(r.value);
     if(err){ showError(err); return; }
     showError(null);
-    var leg = S.lastReading - r.value;
+    var leg = r.value - S.lastUsed;
     S.log.push({ts:Date.now(), time:nowTime(), reading:r.value, tank:S.current, used:leg, tankAfter:target});
-    S.current = target; S.currentSince = Date.now(); S.lastReading = r.value;
-    $("avidyneInput").value = fmt(r.value);
+    S.current = target; S.currentSince = Date.now(); S.lastUsed = r.value;
+    $("usedInput").value = fmt(r.value);
     setStatus(fmt(leg) + " gal from " + name(other(target)) + " \u00B7 on " + name(target));
     buzz();
     save(); render();
@@ -499,11 +524,11 @@
     S.log.pop();
     if(S.log.length){
       var last = S.log[S.log.length-1];
-      S.lastReading = last.reading; S.current = last.tankAfter; S.currentSince = last.ts;
+      S.lastUsed = last.reading; S.current = last.tankAfter; S.currentSince = last.ts;
     } else {
-      S.lastReading = S.totalEntered; S.current = S.takeoff; S.currentSince = S.startedAt;
+      S.lastUsed = 0.0; S.current = S.takeoff; S.currentSince = S.startedAt;
     }
-    $("avidyneInput").value = fmt(S.lastReading);
+    $("usedInput").value = fmt(S.lastUsed);
     showError(null); setStatus("Undone.");
     save(); render();
   }
@@ -532,9 +557,9 @@
     S.leftStart    = num($("leftStartSetup").value, 46.0);
     S.rightStart   = num($("rightStartSetup").value, 46.0);
     S.totalEntered = num($("totalEntered").value, S.leftStart + S.rightStart);
-    S.started = true; S.current = S.takeoff; S.lastReading = S.totalEntered;
+    S.started = true; S.current = S.takeoff; S.lastUsed = 0.0;
     S.startedAt = Date.now(); S.currentSince = S.startedAt; S.log = [];
-    $("avidyneInput").value = fmt(S.lastReading);
+    $("usedInput").value = fmt(S.lastUsed);
     showError(null); setStatus("");
     keepAwake();
     save(); render();
@@ -542,25 +567,25 @@
 
   $("switchBtn").addEventListener("click", doSwitch);
   $("undoBtn").addEventListener("click", undoLast);
-  $("avidyneInput").addEventListener("focus", function(){
-    /* tap-to-clear: the box is refilled with the last reading after each
-       switch, so clear it on tap and let the pilot type over nothing */
+  $("usedInput").addEventListener("focus", function(){
+    /* tap-to-clear: the box is refilled with the last used reading after
+       each switch, so clear it on tap and let the pilot type over nothing */
     this.value = ""; showError(null); updatePreview();
   });
-  $("avidyneInput").addEventListener("click", function(){
+  $("usedInput").addEventListener("click", function(){
     /* a second tap while the box is already focused (no new focus event)
-       also clears it — but only when it still shows the last reading,
+       also clears it — but only when it still shows the last used reading,
        never a half-typed new one */
-    if(S.started && this.value === fmt(S.lastReading)){ this.value = ""; updatePreview(); }
+    if(S.started && this.value === fmt(S.lastUsed)){ this.value = ""; updatePreview(); }
   });
-  $("avidyneInput").addEventListener("blur", function(){
-    /* leaving the box empty restores the last reading, so the field never
-       sits blank by accident; Switch with an empty box still just moves
-       the selector, because the restored value equals the last reading */
-    if(String(this.value).trim() === "" && S.started) this.value = fmt(S.lastReading);
+  $("usedInput").addEventListener("blur", function(){
+    /* leaving the box empty restores the last used reading, so the field
+       never sits blank by accident; Switch with an empty box still just
+       moves the selector, because the restored value equals it */
+    if(String(this.value).trim() === "" && S.started) this.value = fmt(S.lastUsed);
   });
-  $("avidyneInput").addEventListener("input", function(){ showError(null); updatePreview(); });
-  $("avidyneInput").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); doSwitch(); } });
+  $("usedInput").addEventListener("input", function(){ showError(null); updatePreview(); });
+  $("usedInput").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); doSwitch(); } });
 
   $("leftStartFlight").addEventListener("input", function(){
     var n = parseFloat(this.value); if(isFinite(n)){ S.leftStart = n; save(); render(); }
@@ -575,7 +600,7 @@
   $("clearLogBtn").addEventListener("click", function(){
     $("modalWrap").classList.remove("show");
     S.started = false; S.log = []; S.current = S.takeoff;
-    S.lastReading = S.totalEntered; totalManual = false;
+    S.lastUsed = 0.0; totalManual = false;
     $("leftStartSetup").value = fmt(S.leftStart);
     $("rightStartSetup").value = fmt(S.rightStart);
     $("totalEntered").value = fmt(S.totalEntered);
@@ -592,7 +617,7 @@
   (function(){
     var el = $("offlineLine");
     var hadController = ("serviceWorker" in navigator) && !!navigator.serviceWorker.controller;
-    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v11"; el.classList.add("ready"); } }
+    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v12"; el.classList.add("ready"); } }
     function checking(msg){ if(el && !el.classList.contains("ready")) el.textContent = msg; }
     try{
       if(location.protocol !== "https:"){ checking("Offline: not in this copy \u2014 use hosted version"); return; }
@@ -613,7 +638,7 @@
     }catch(e){ checking("Offline: cache failed"); }
   })();
   if(S.started){
-    $("avidyneInput").value = fmt(S.lastReading);
+    $("usedInput").value = fmt(S.lastUsed);
     keepAwake();
   } else {
     $("leftStartSetup").value = fmt(S.leftStart);
