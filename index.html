@@ -84,6 +84,8 @@
   .btn.ghost{border-color:var(--line); background:var(--card); color:var(--ink); font-size:15px; min-height:48px}
   .btn.ghost:active{background:var(--ghost-active)}
   .btn.danger{border-color:var(--red); background:var(--card); color:var(--red)}
+  .btn.solidred{border-color:#a9231c; background:#a9231c; color:#fff}
+  .btn.solidred:active{background:#841a15}
   .btn[disabled]{opacity:.38; pointer-events:none}
   .btnrow{display:grid; grid-template-columns:1fr 1fr; gap:12px}
   .stack>*{margin-bottom:12px}
@@ -254,8 +256,8 @@
       <div class="status" id="statusLine"></div>
     </div>
 
-    <div class="logtitle">FLIGHT LOG</div>
-    <div id="logWrap"></div>
+    <div class="logtitle hidden">FLIGHT LOG</div>
+    <div id="logWrap" class="hidden"></div>
 
     <div class="btnrow" style="margin-top:18px">
       <button type="button" class="btn ghost" id="undoBtn">Undo last</button>
@@ -270,9 +272,8 @@
     <h2>Start a new flight?</h2>
     <p id="newFlightSummary"></p>
     <div class="stack">
-      <button type="button" class="btn" id="fullFuelBtn">Start Full Fuel</button>
+      <button type="button" class="btn solidred" id="fullFuelBtn">Start Full Fuel</button>
       <button type="button" class="btn ghost" id="continueFuelBtn" style="min-height:54px;font-size:17px">Continue Present Fuel</button>
-      <button type="button" class="btn ghost" id="keepBtn">Keep it</button>
     </div>
   </div>
 </div>
@@ -620,7 +621,6 @@
       " gal (L " + fmt(rem.L) + " \u00B7 R " + fmt(rem.R) + "). Start Full Fuel resets to 92.0 gal.";
     $("modalWrap").classList.add("show");
   });
-  $("keepBtn").addEventListener("click", function(){ $("modalWrap").classList.remove("show"); });
   $("modalWrap").addEventListener("click", function(e){ if(e.target === this) this.classList.remove("show"); });
   $("fullFuelBtn").addEventListener("click", function(){
     $("modalWrap").classList.remove("show");
@@ -647,7 +647,7 @@
   (function(){
     var el = $("offlineLine");
     var hadController = ("serviceWorker" in navigator) && !!navigator.serviceWorker.controller;
-    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v19"; el.classList.add("ready"); } }
+    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v20"; el.classList.add("ready"); } }
     function checking(msg){ if(el && !el.classList.contains("ready")) el.textContent = msg; }
     try{
       if(location.protocol !== "https:"){ checking("Offline: not in this copy \u2014 use hosted version"); return; }
