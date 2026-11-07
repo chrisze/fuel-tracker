@@ -428,7 +428,9 @@
   /* ---------- rendering ---------- */
   function tankRender(side, remVal, usedVal, startVal, cardId, remId, barId, wrapId, metaId){
     $(remId).textContent = fmt(remVal);
-    var pct = startVal > 0 ? Math.max(0, Math.min(100, remVal / startVal * 100)) : 0;
+    /* % (and the bar) are always relative to a full tank — 46 gal —
+       never to this flight's start value */
+    var pct = Math.max(0, Math.min(100, remVal / 46.0 * 100));
     $(barId).style.width = pct + "%";
     var wrap = $(wrapId);
     wrap.classList.toggle("warnbar", pct < 30 && pct >= 15);
@@ -592,11 +594,14 @@
   $("avidyneInput").addEventListener("input", function(){ showError(null); updatePreview(); });
   $("avidyneInput").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); doSwitch(); } });
 
+  /* Editing a tank's start re-syncs the totalizer total to the sum of
+     the starts, so the totalizer remaining (total − used) always equals
+     (L start + R start) − totalizer used */
   $("leftStartFlight").addEventListener("input", function(){
-    var n = parseFloat(this.value); if(isFinite(n)){ S.leftStart = n; save(); render(); }
+    var n = parseFloat(this.value); if(isFinite(n)){ S.leftStart = n; S.totalEntered = S.leftStart + S.rightStart; save(); render(); }
   });
   $("rightStartFlight").addEventListener("input", function(){
-    var n = parseFloat(this.value); if(isFinite(n)){ S.rightStart = n; save(); render(); }
+    var n = parseFloat(this.value); if(isFinite(n)){ S.rightStart = n; S.totalEntered = S.leftStart + S.rightStart; save(); render(); }
   });
 
   /* Start a fresh flight in place: log cleared, totalizer used back to
@@ -647,7 +652,7 @@
   (function(){
     var el = $("offlineLine");
     var hadController = ("serviceWorker" in navigator) && !!navigator.serviceWorker.controller;
-    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v20"; el.classList.add("ready"); } }
+    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v21"; el.classList.add("ready"); } }
     function checking(msg){ if(el && !el.classList.contains("ready")) el.textContent = msg; }
     try{
       if(location.protocol !== "https:"){ checking("Offline: not in this copy \u2014 use hosted version"); return; }
