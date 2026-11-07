@@ -268,9 +268,11 @@
 <div class="modalwrap" id="modalWrap">
   <div class="modal">
     <h2>Start a new flight?</h2>
+    <p id="newFlightSummary"></p>
     <div class="stack">
-      <button type="button" class="btn danger" id="clearLogBtn">Clear log</button>
-      <button type="button" class="btn" id="keepBtn">Keep it</button>
+      <button type="button" class="btn" id="fullFuelBtn">Start Full Fuel</button>
+      <button type="button" class="btn ghost" id="continueFuelBtn" style="min-height:54px;font-size:17px">Continue Present Fuel</button>
+      <button type="button" class="btn ghost" id="keepBtn">Keep it</button>
     </div>
   </div>
 </div>
@@ -596,18 +598,44 @@
     var n = parseFloat(this.value); if(isFinite(n)){ S.rightStart = n; save(); render(); }
   });
 
-  $("newFlightBtn").addEventListener("click", function(){ $("modalWrap").classList.add("show"); });
-  $("keepBtn").addEventListener("click", function(){ $("modalWrap").classList.remove("show"); });
-  $("modalWrap").addEventListener("click", function(e){ if(e.target === this) this.classList.remove("show"); });
-  $("clearLogBtn").addEventListener("click", function(){
-    $("modalWrap").classList.remove("show");
-    S.started = false; S.log = []; S.current = S.takeoff;
-    S.lastUsed = 0.0; totalManual = false;
+  /* Start a fresh flight in place: log cleared, totalizer used back to
+     0, on the takeoff tank, with the given per-tank starts and totalizer
+     total. Setup fields are synced to the same values. */
+  function beginNewFlight(leftStart, rightStart, totalEntered){
+    S.leftStart = leftStart; S.rightStart = rightStart; S.totalEntered = totalEntered;
+    S.started = true; S.current = S.takeoff; S.lastUsed = 0.0;
+    S.startedAt = Date.now(); S.currentSince = S.startedAt; S.log = [];
+    totalManual = false;
     $("leftStartSetup").value = fmt(S.leftStart);
     $("rightStartSetup").value = fmt(S.rightStart);
     $("totalEntered").value = fmt(S.totalEntered);
-    showError(null); setStatus("");
+    $("avidyneInput").value = fmt(S.lastUsed);
+    showError(null);
+    keepAwake();
     save(); render();
+  }
+  $("newFlightBtn").addEventListener("click", function(){
+    var rem = remainings();
+    $("newFlightSummary").textContent = "Continue Present Fuel keeps " + fmt(rem.L + rem.R) +
+      " gal (L " + fmt(rem.L) + " \u00B7 R " + fmt(rem.R) + "). Start Full Fuel resets to 92.0 gal.";
+    $("modalWrap").classList.add("show");
+  });
+  $("keepBtn").addEventListener("click", function(){ $("modalWrap").classList.remove("show"); });
+  $("modalWrap").addEventListener("click", function(e){ if(e.target === this) this.classList.remove("show"); });
+  $("fullFuelBtn").addEventListener("click", function(){
+    $("modalWrap").classList.remove("show");
+    beginNewFlight(46.0, 46.0, 92.0);
+    setStatus("New flight \u00B7 full fuel");
+  });
+  $("continueFuelBtn").addEventListener("click", function(){
+    $("modalWrap").classList.remove("show");
+    /* remainings must be read before beginNewFlight clears the log:
+       the remaining in each tank becomes that tank's new start, so the
+       total remaining is unchanged */
+    var rem = remainings();
+    var l = Math.round(rem.L * 10) / 10, r = Math.round(rem.R * 10) / 10;
+    beginNewFlight(l, r, Math.round((l + r) * 10) / 10);
+    setStatus("New flight \u00B7 continuing with " + fmt(l + r) + " gal");
   });
   if(document.addEventListener) document.addEventListener("visibilitychange", keepAwake);
   if(typeof setInterval !== "undefined") setInterval(renderOnTime, 30000);
@@ -619,7 +647,7 @@
   (function(){
     var el = $("offlineLine");
     var hadController = ("serviceWorker" in navigator) && !!navigator.serviceWorker.controller;
-    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v18"; el.classList.add("ready"); } }
+    function ready(){ if(el){ el.textContent = "Offline ready \u2713 \u00B7 v19"; el.classList.add("ready"); } }
     function checking(msg){ if(el && !el.classList.contains("ready")) el.textContent = msg; }
     try{
       if(location.protocol !== "https:"){ checking("Offline: not in this copy \u2014 use hosted version"); return; }

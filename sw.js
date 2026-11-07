@@ -1,6 +1,6 @@
 // SR22T Tank Tracker - offline cache. Bump VERSION to force an update.
-const VERSION = "sr22t-v18";
-// The "?v=18" suffixes matter: GitHub Pages serves every file with
+const VERSION = "sr22t-v19";
+// The "?v=19" suffixes matter: GitHub Pages serves every file with
 // Cache-Control max-age=600, so a plain addAll() during install can be
 // satisfied by the browser's HTTP cache and store the PREVIOUS page
 // under the NEW version's cache name — after which the cache-first
@@ -8,7 +8,7 @@ const VERSION = "sr22t-v18";
 // been requested before, so install always fetches fresh from the
 // network. Serving still matches, because the fetch handler looks up
 // with ignoreSearch:true.
-const FILES = ["./?v=18", "./index.html?v=18", "./manifest.webmanifest?v=18", "./icon-192.png?v=18", "./icon-512.png?v=18", "./apple-touch-icon.png?v=18"];
+const FILES = ["./?v=19", "./index.html?v=19", "./manifest.webmanifest?v=19", "./icon-192.png?v=19", "./icon-512.png?v=19", "./apple-touch-icon.png?v=19"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
